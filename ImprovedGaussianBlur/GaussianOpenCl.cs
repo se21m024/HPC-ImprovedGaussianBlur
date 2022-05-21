@@ -141,6 +141,10 @@ namespace ImprovedGaussianBlur
             CheckStatus(status);
             var bufferKernelDim = Cl.CreateBuffer<int>(context, MemFlags.ReadOnly, 1, out status);
             CheckStatus(status);
+            var bufferIsHorizontal = Cl.CreateBuffer<int>(context, MemFlags.ReadOnly, 1, out status);
+            CheckStatus(status);
+
+            var isHorizontal = 1;
 
             // write data from the input arrays to the buffers
             CheckStatus(Cl.EnqueueWriteBuffer(commandQueue, bufferInputImage, Bool.True, IntPtr.Zero, new IntPtr(imageDataSize), inputArray, 0, null, out _));
@@ -148,6 +152,8 @@ namespace ImprovedGaussianBlur
             CheckStatus(Cl.EnqueueWriteBuffer(commandQueue, bufferRows, Bool.True, IntPtr.Zero, new IntPtr(intDataSize), rows, 0, null, out _));
             CheckStatus(Cl.EnqueueWriteBuffer(commandQueue, bufferCols, Bool.True, IntPtr.Zero, new IntPtr(intDataSize), cols, 0, null, out _));
             CheckStatus(Cl.EnqueueWriteBuffer(commandQueue, bufferKernelDim, Bool.True, IntPtr.Zero, new IntPtr(intDataSize), kernelDim, 0, null, out _));
+            CheckStatus(Cl.EnqueueWriteBuffer(commandQueue, bufferIsHorizontal, Bool.True, IntPtr.Zero, new IntPtr(intDataSize), isHorizontal, 0, null, out _));
+
 
             // create the program
             var programSource = File.ReadAllText("blurKernel.cl");
@@ -176,6 +182,7 @@ namespace ImprovedGaussianBlur
             CheckStatus(Cl.SetKernelArg(kernel, 3, bufferRows));
             CheckStatus(Cl.SetKernelArg(kernel, 4, bufferCols));
             CheckStatus(Cl.SetKernelArg(kernel, 5, bufferKernelDim));
+            CheckStatus(Cl.SetKernelArg(kernel, 6, bufferIsHorizontal));
 
             // output device capabilities
             IntPtr paramSize;
@@ -205,8 +212,21 @@ namespace ImprovedGaussianBlur
 
             // execute the kernel
             // ndrange capabilities only need to be checked when we specify a local work group size manually
-            // in our case we provide NULL as local work group size, which means groups get formed automatically
-            CheckStatus(Cl.EnqueueNDRangeKernel(commandQueue, kernel, 2, null, new IntPtr[] { new IntPtr(height), new IntPtr(width), }, null, 0, null, out var _));
+            // in our case we provide NULL as local work group size, which means groups get formed automatically 
+            Console.Write("MaxWorkGroupSize: ", DeviceInfo.MaxWorkGroupSize);
+
+            if (maxWorkGroupSize < height || maxWorkGroupSize < width)
+            {
+                Console.Write("Picture is larger than the MaxWorkGroupSize of ", DeviceInfo.MaxWorkGroupSize);
+                return null;
+            }
+
+            Console.Write("Started kernel with MaxWorkGroupSize of ", DeviceInfo.MaxWorkGroupSize);
+            CheckStatus(Cl.EnqueueNDRangeKernel(commandQueue, kernel, 2, null, new IntPtr[] { new IntPtr(height), new IntPtr(width), }, new IntPtr[] { new IntPtr(1), new IntPtr(width), }, 0, null, out var _));
+
+            isHorizontal = 0;
+            CheckStatus(Cl.EnqueueWriteBuffer(commandQueue, bufferIsHorizontal, Bool.True, IntPtr.Zero, new IntPtr(intDataSize), isHorizontal, 0, null, out _));
+            CheckStatus(Cl.EnqueueNDRangeKernel(commandQueue, kernel, 2, null, new IntPtr[] { new IntPtr(height), new IntPtr(width), }, new IntPtr[] { new IntPtr(height), new IntPtr(1), }, 0, null, out var _));
 
             // read the device output buffer to the host output array
             CheckStatus(Cl.EnqueueReadBuffer(commandQueue, bufferOutputImage, Bool.True, IntPtr.Zero, new IntPtr(imageDataSize), outputArray, 0, null, out var _));
