@@ -7,10 +7,16 @@ namespace ImprovedGaussianBlur
     {
         static void Main(string[] args)
         {
+
+
+            Console.WriteLine("Start Sync Demo ----------------------");
+            SyncDemo.DoStuff();
+            Console.WriteLine("Finished Sync Demo ----------------------");
+
             using (var inputImage = new Bitmap("./InputImage.bmp"))
             {
-                var outputImage = GaussianOpenCl.ApplyGaussianBlur(inputImage);
-                outputImage.Save("./OutputImage.bmp");
+                //var outputImage = GaussianOpenCl.ApplyGaussianBlur(inputImage);
+                //outputImage.Save("./OutputImage.bmp");
             }
 
             Console.WriteLine("Program finished.\nPress RETURN to exit the program.");
