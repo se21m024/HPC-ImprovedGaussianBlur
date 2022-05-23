@@ -31,9 +31,7 @@ __kernel void blur(__global uchar4 *inputPixels,
   // Device synchronization: Wait for all pixels to write to local memory
   barrier(CLK_LOCAL_MEM_FENCE);
 
-  int cKernelX, cKernelY;
-
-  cKernelY = (*cKernelDimension) / 2;
+  int cKernelX, cKernelY = (*cKernelDimension) / 2;
 
   // Horizonal call
   if (*isHorizontal == 1) {
@@ -54,10 +52,8 @@ __kernel void blur(__global uchar4 *inputPixels,
   // Vertical call
   else {
     int x = currentCol;
-
     for (cKernelY = 0; cKernelY < (*cKernelDimension); cKernelY++) {
       int y = currentRow - *cKernelDimension / 2 + cKernelY;
-
       if (y < 0 || y >= *rows) {
         y = currentRow;
       }
