@@ -207,26 +207,29 @@ namespace ImprovedGaussianBlur
             {
                 Console.Write(" " + i + ":" + maxWorkItemSizes[i]);
             }
-
             Console.WriteLine();
 
-            // execute the kernel
-            // ndrange capabilities only need to be checked when we specify a local work group size manually
-            // in our case we provide NULL as local work group size, which means groups get formed automatically 
-            Console.Write("MaxWorkGroupSize: ", DeviceInfo.MaxWorkGroupSize);
-
+            // Exit program if the device does not support the required work group size
             if (maxWorkGroupSize < height || maxWorkGroupSize < width)
             {
-                Console.Write("Picture is larger than the MaxWorkGroupSize of ", DeviceInfo.MaxWorkGroupSize);
+                Console.Write("Picture is larger than the MaxWorkGroupSize of " + DeviceInfo.MaxWorkGroupSize);
                 return null;
             }
 
-            Console.Write("Started kernel with MaxWorkGroupSize of ", DeviceInfo.MaxWorkGroupSize);
-            CheckStatus(Cl.EnqueueNDRangeKernel(commandQueue, kernel, 2, null, new IntPtr[] { new IntPtr(height), new IntPtr(width), }, new IntPtr[] { new IntPtr(1), new IntPtr(width), }, 0, null, out var _));
+            Console.Write("Started kernel with MaxWorkGroupSize of " + DeviceInfo.MaxWorkGroupSize);
 
+            // Execute horizontal kernel call
+            CheckStatus(Cl.EnqueueNDRangeKernel(commandQueue, kernel, 2, null, new IntPtr[] { new IntPtr(height), new IntPtr(width), }, new IntPtr[] { new IntPtr(1), new IntPtr(width), }, 0, null, out var horizontalKernelCallEvent));
+
+            // Host synchronization: wait for horizontal kernel call to complete
+            Cl.WaitForEvents(1, new Event[] { horizontalKernelCallEvent, });
+
+            // Execute vertical kernel call
             isHorizontal = 0;
-            CheckStatus(Cl.EnqueueWriteBuffer(commandQueue, bufferIsHorizontal, Bool.True, IntPtr.Zero, new IntPtr(intDataSize), isHorizontal, 0, null, out _));
-            CheckStatus(Cl.EnqueueNDRangeKernel(commandQueue, kernel, 2, null, new IntPtr[] { new IntPtr(height), new IntPtr(width), }, new IntPtr[] { new IntPtr(height), new IntPtr(1), }, 0, null, out var _));
+            CheckStatus(Cl.EnqueueWriteBuffer(commandQueue, bufferIsHorizontal, Bool.True, IntPtr.Zero, new IntPtr(intDataSize), isHorizontal, 0, null, out var rewriteInputBufferEvent));
+            Cl.WaitForEvents(1, new Event[] { rewriteInputBufferEvent, });
+            CheckStatus(Cl.EnqueueNDRangeKernel(commandQueue, kernel, 2, null, new IntPtr[] { new IntPtr(height), new IntPtr(width), }, new IntPtr[] { new IntPtr(height), new IntPtr(1), }, 0, null, out var verticalKernelCallEvent));
+            Cl.WaitForEvents(1, new Event[] { verticalKernelCallEvent, });
 
             // read the device output buffer to the host output array
             CheckStatus(Cl.EnqueueReadBuffer(commandQueue, bufferOutputImage, Bool.True, IntPtr.Zero, new IntPtr(imageDataSize), outputArray, 0, null, out var _));
