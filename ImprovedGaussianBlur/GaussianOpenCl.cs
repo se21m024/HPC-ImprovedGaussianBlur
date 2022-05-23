@@ -154,7 +154,6 @@ namespace ImprovedGaussianBlur
             CheckStatus(Cl.EnqueueWriteBuffer(commandQueue, bufferKernelDim, Bool.True, IntPtr.Zero, new IntPtr(intDataSize), kernelDim, 0, null, out _));
             CheckStatus(Cl.EnqueueWriteBuffer(commandQueue, bufferIsHorizontal, Bool.True, IntPtr.Zero, new IntPtr(intDataSize), isHorizontal, 0, null, out _));
 
-
             // create the program
             var programSource = File.ReadAllText("blurKernel.cl");
             var program = Cl.CreateProgramWithSource(context, 1, new string[] { programSource }, null, out status);
@@ -183,6 +182,8 @@ namespace ImprovedGaussianBlur
             CheckStatus(Cl.SetKernelArg(kernel, 4, bufferCols));
             CheckStatus(Cl.SetKernelArg(kernel, 5, bufferKernelDim));
             CheckStatus(Cl.SetKernelArg(kernel, 6, bufferIsHorizontal));
+            CheckStatus(Cl.SetKernelArg(kernel, 7, new IntPtr(imageDataSize / cols), null));
+            CheckStatus(Cl.SetKernelArg(kernel, 8, new IntPtr(imageDataSize / rows), null));
 
             // output device capabilities
             IntPtr paramSize;
@@ -221,7 +222,7 @@ namespace ImprovedGaussianBlur
             // Execute horizontal kernel call
             CheckStatus(Cl.EnqueueNDRangeKernel(commandQueue, kernel, 2, null, new IntPtr[] { new IntPtr(height), new IntPtr(width), }, new IntPtr[] { new IntPtr(1), new IntPtr(width), }, 0, null, out var horizontalKernelCallEvent));
 
-            // Host synchronization: wait for horizontal kernel call to complete
+            // Host synchronization: wait for horizontal kernel call to complete before preceding with vertical kernel call
             Cl.WaitForEvents(1, new Event[] { horizontalKernelCallEvent, });
 
             // Execute vertical kernel call
@@ -249,6 +250,7 @@ namespace ImprovedGaussianBlur
             CheckStatus(Cl.ReleaseMemObject(bufferRows));
             CheckStatus(Cl.ReleaseMemObject(bufferCols));
             CheckStatus(Cl.ReleaseMemObject(bufferKernelDim));
+            CheckStatus(Cl.ReleaseMemObject(bufferIsHorizontal));
             CheckStatus(Cl.ReleaseCommandQueue(commandQueue));
             CheckStatus(Cl.ReleaseContext(context));
 
