@@ -55,9 +55,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <None Include="syncKernel.cl">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Include="blurKernel.cl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
