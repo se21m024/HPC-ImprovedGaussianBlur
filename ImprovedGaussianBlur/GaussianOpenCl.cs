@@ -2,7 +2,6 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using System.Linq;
 using System.Runtime.InteropServices;
 using OpenCL.Net;
 
@@ -10,43 +9,20 @@ namespace ImprovedGaussianBlur
 {
     public class GaussianOpenCl
     {
-        public static Bitmap ApplyGaussianBlur(Bitmap inputImage)
+        public static Bitmap ApplyGaussianBlur(Bitmap inputImage, bool useCustomCKernel)
         {
-            const int kernelDimension = 7;
-            var kernel = CreateKernel(kernelDimension, kernelDimension);
-            return Convolve(inputImage, kernel, kernelDimension);
-        }
+            // Values for 1-D convolution kernel were taken from https://homepages.inf.ed.ac.uk/rbf/HIPR2/gsmooth.htm
+            var kernel = new double[] { 0.006, 0.061, 0.242, 0.383, 0.242, 0.061, 0.006 };
 
-        // The CreateKernel method is based on: https://epochabuse.com/gaussian-blur/
-        private static double[,] CreateKernel(int length, double weight)
-        {
-            var kernel = new double[length, length];
-            double kernelSum = 0;
-            var foff = (length - 1) / 2;
-            var constant = 1d / (2 * Math.PI * weight * weight);
-
-            for (var y = -foff; y <= foff; y++)
+            if (useCustomCKernel)
             {
-                for (var x = -foff; x <= foff; x++)
-                {
-                    var distance = ((y * y) + (x * x)) / (2 * weight * weight);
-                    kernel[y + foff, x + foff] = constant * Math.Exp(-distance);
-                    kernelSum += kernel[y + foff, x + foff];
-                }
+                kernel = new double[] { 0.1428, 0.1428, 0.1428, 0.1428, 0.1428, 0.1428, 0.1428, };
             }
 
-            for (var y = 0; y < length; y++)
-            {
-                for (var x = 0; x < length; x++)
-                {
-                    kernel[y, x] = kernel[y, x] * 1d / kernelSum;
-                }
-            }
-
-            return kernel;
+            return Convolve(inputImage, kernel, kernel.Length);
         }
 
-        private static Bitmap Convolve(Bitmap inputImage, double[,] kernelMatrix, int kernelDim)
+        private static Bitmap Convolve(Bitmap inputImage, double[] cKernel, int kernelDim)
         {
             // convert bitmap to byte array
             int width = inputImage.Width;
@@ -60,9 +36,6 @@ namespace ImprovedGaussianBlur
             Marshal.Copy(srcData.Scan0, inputImageArray, 0, bytes);
             inputImage.UnlockBits(srcData);
 
-            // Flatten kernel array
-            var flattenedKernel = kernelMatrix.Cast<double>().ToArray();
-
             // input and output data
             var imageElementSize = bytes;
             var imageDataSize = imageElementSize * sizeof(byte);
@@ -70,10 +43,10 @@ namespace ImprovedGaussianBlur
             var inputArray = inputImageArray;
             var outputArray = new byte[imageElementSize];
 
-            var kernelElementSize = flattenedKernel.Length;
+            var kernelElementSize = cKernel.Length;
             var kernelDataSize = kernelElementSize * sizeof(double);
 
-            var kernelArray = flattenedKernel;
+            var kernelArray = cKernel;
 
             var rows = inputImage.Height;
             var cols = inputImage.Width;

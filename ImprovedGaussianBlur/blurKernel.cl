@@ -31,39 +31,34 @@ __kernel void blur(__global uchar4 *inputPixels,
   // Device synchronization: Wait for all pixels to write to local memory
   barrier(CLK_LOCAL_MEM_FENCE);
 
-  int cKernelX, cKernelY = (*cKernelDimension) / 2;
+  int cKernelIdx = (*cKernelDimension) / 2;
 
   // Horizonal call
   if (*isHorizontal == 1) {
     int y = currentRow;
-    for (cKernelX = 0; cKernelX < (*cKernelDimension); cKernelX++) {
-      int x = currentCol - *cKernelDimension / 2 + cKernelX;
+    for (cKernelIdx = 0; cKernelIdx < (*cKernelDimension); cKernelIdx++) {
+      int x = currentCol - *cKernelDimension / 2 + cKernelIdx;
       if (x < 0 || x >= *cols) {
         x = currentCol;
       }
 
       // Was multiplied by the cKernelDimension due to not using the full kernel
       // matrix for each pixel.
-      tempPixel += convert_double4(localInputRowPixels[x]) *
-                   (*cKernelDimension) *
-                   cKernel[(cKernelY * (*cKernelDimension)) + cKernelX];
+      tempPixel += convert_double4(localInputRowPixels[x]) * cKernel[cKernelIdx];
     }
   }
   // Vertical call
   else {
     int x = currentCol;
-    for (cKernelY = 0; cKernelY < (*cKernelDimension); cKernelY++) {
-      int y = currentRow - *cKernelDimension / 2 + cKernelY;
+    for (cKernelIdx = 0; cKernelIdx < (*cKernelDimension); cKernelIdx++) {
+      int y = currentRow - *cKernelDimension / 2 + cKernelIdx;
       if (y < 0 || y >= *rows) {
         y = currentRow;
       }
 
-      tempPixel += convert_double4(localInputColumnPixels[y]) *
-                   (*cKernelDimension) *
-                   cKernel[(cKernelY * (*cKernelDimension)) + cKernelX];
+      tempPixel += convert_double4(localInputColumnPixels[y]) * cKernel[cKernelIdx];
     }
   }
 
-  outputPixels[currentPixelIdx] =
-      convert_uchar4_sat(tempPixel);
+  outputPixels[currentPixelIdx] = convert_uchar4_sat(tempPixel);
 }
