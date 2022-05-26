@@ -36,10 +36,16 @@ __kernel void blur(__global uchar4 *inputPixels,
   // Horizonal call
   if (*isHorizontal == 1) {
     int y = currentRow;
+
     for (cKernelIdx = 0; cKernelIdx < (*cKernelDimension); cKernelIdx++) {
       int x = currentCol - *cKernelDimension / 2 + cKernelIdx;
-      if (x < 0 || x >= *cols) {
-        x = currentCol;
+
+      if (x < 0) {
+        x = 0;
+      }
+
+      if (x >= *cols) {
+        x = *cols - 1;
       }
 
       // Was multiplied by the cKernelDimension due to not using the full kernel
@@ -50,10 +56,16 @@ __kernel void blur(__global uchar4 *inputPixels,
   // Vertical call
   else {
     int x = currentCol;
+
     for (cKernelIdx = 0; cKernelIdx < (*cKernelDimension); cKernelIdx++) {
       int y = currentRow - *cKernelDimension / 2 + cKernelIdx;
-      if (y < 0 || y >= *rows) {
-        y = currentRow;
+
+      if (y < 0) {
+        y = 0;
+      }
+
+      if (y >= *rows) {
+        y = *rows - 1;
       }
 
       tempPixel += convert_double4(localInputColumnPixels[y]) * cKernel[cKernelIdx];
